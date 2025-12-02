@@ -101,7 +101,7 @@ test "part 2 example" {
     try std.testing.expectEqual(10, handle.zero_passed_by);
 }
 
-test "pwet" {
+test "end at zero" {
     var handle: Handle = .{ .position = 1 };
     try handle.rotate("L1"); // position: 0
     try handle.rotate("R1"); // position: 1
