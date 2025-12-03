@@ -1,13 +1,18 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{
         .default_target = .{ .abi = .musl },
     });
     const optimize = b.standardOptimizeOption(.{});
 
+    var buf: [64]u8 = undefined;
+    const day = b.option(u8, "day", "Day to run") orelse 0;
+
+    const file = try std.fmt.bufPrint(&buf, "src/days/{d:0>2}.zig", .{day});
+
     const mod = b.addModule("aoc", .{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path(file),
         .target = target,
         .optimize = optimize,
     });
@@ -25,10 +30,6 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     run_cmd.step.dependOn(b.getInstallStep());
-
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
 
     const mod_tests = b.addTest(.{
         .root_module = mod,
