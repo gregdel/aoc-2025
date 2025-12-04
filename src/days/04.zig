@@ -1,19 +1,15 @@
 const std = @import("std");
 
+const Input = @import("lib/input.zig").Input;
+const Part = @import("lib/aoc.zig").Part;
 const Map = @import("lib/map.zig").Map;
+const Day = @import("lib/aoc.zig").Day;
 const all_directions = @import("lib/map.zig").all_directions;
 
 pub fn main() !void {
-    var file = try std.fs.cwd().openFile("inputs/4", .{});
-    defer file.close();
-
-    var buf = std.mem.zeroes([4096]u8);
-    var file_reader = file.reader(&buf);
-
-    const one = try solve(&file_reader.interface, true);
-    try file_reader.seekTo(0);
-    const two = try solve(&file_reader.interface, false);
-    std.debug.print("part_one:{d} part_two:{d}\n", .{ one, two });
+    var day = try Day.init(4, solve);
+    defer day.deinit();
+    try day.solve();
 }
 
 fn cleanup_map(map: *Map) !u64 {
@@ -43,7 +39,7 @@ fn cleanup_map(map: *Map) !u64 {
     return result;
 }
 
-fn solve(reader: *std.io.Reader, part_one: bool) !u64 {
+fn solve(reader: *std.io.Reader, part: Part) !u64 {
     var gpa: std.heap.DebugAllocator(.{}) = .{};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -57,7 +53,7 @@ fn solve(reader: *std.io.Reader, part_one: bool) !u64 {
         const r: u64 = try cleanup_map(&map);
         result += r;
         if (r == 0) break;
-        if (part_one) break;
+        if (part == .one) break;
     }
 
     return result;
@@ -78,12 +74,12 @@ const test_input =
 
 test "test part 1" {
     var reader = std.io.Reader.fixed(test_input);
-    const result = try solve(&reader, true);
+    const result = try solve(&reader, .one);
     try std.testing.expectEqual(13, result);
 }
 
 test "test part 2" {
     var reader = std.io.Reader.fixed(test_input);
-    const result = try solve(&reader, false);
+    const result = try solve(&reader, .two);
     try std.testing.expectEqual(43, result);
 }

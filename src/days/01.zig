@@ -1,24 +1,23 @@
 const std = @import("std");
 
-pub fn main() !void {
-    var file = try std.fs.cwd().openFile("inputs/1", .{});
-    defer file.close();
+const Day = @import("lib/aoc.zig").Day;
+const Part = @import("lib/aoc.zig").Part;
 
-    var buf = std.mem.zeroes([4096]u8);
-    var file_reader = file.reader(&buf);
-    const result = try solve(&file_reader.interface);
-    std.debug.print(
-        "Result: part_1:{d} part_2:{d}\n",
-        .{ result.zero_end, result.zero_passed_by },
-    );
+pub fn main() !void {
+    var day = try Day.init(1, solve);
+    defer day.deinit();
+    try day.solve();
 }
 
-fn solve(reader: *std.io.Reader) !Handle {
+fn solve(reader: *std.io.Reader, part: Part) !u64 {
     var handle: Handle = .{ .position = 50 };
     while (try reader.takeDelimiter('\n')) |line| {
         try handle.rotate(line);
     }
-    return handle;
+    return switch (part) {
+        .one => handle.zero_end,
+        .two => handle.zero_passed_by,
+    };
 }
 
 const Handle = struct {
@@ -124,7 +123,10 @@ test "tests part 1 and 2" {
     ;
 
     var reader = std.io.Reader.fixed(input);
-    const result = try solve(&reader);
-    try std.testing.expectEqual(3, result.zero_end);
-    try std.testing.expectEqual(6, result.zero_passed_by);
+    const one = try solve(&reader, .one);
+    reader = std.io.Reader.fixed(input);
+    const two = try solve(&reader, .two);
+
+    try std.testing.expectEqual(3, one);
+    try std.testing.expectEqual(6, two);
 }

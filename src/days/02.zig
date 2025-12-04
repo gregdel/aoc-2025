@@ -1,18 +1,22 @@
 const std = @import("std");
 
-pub fn main() !void {
-    var file = try std.fs.cwd().openFile("inputs/2", .{});
-    defer file.close();
+const Input = @import("lib/input.zig").Input;
+const Part = @import("lib/aoc.zig").Part;
 
-    var buf = std.mem.zeroes([4096]u8);
-    var file_reader = file.reader(&buf);
-    // const one = try solve(&file_reader.interface, false);
-    const one = 0;
-    const two = try solve(&file_reader.interface, true);
-    std.debug.print("Result: part_1:{d} part_2:{d}\n", .{ one, two });
+pub fn main() !void {
+    var input = try Input.init(2);
+    defer input.deinit();
+
+    var buf: [4096]u8 = undefined;
+    var file_reader = try input.reader(&buf);
+
+    const one = try solve(&file_reader.interface, .one);
+    try file_reader.seekTo(0);
+    const two = try solve(&file_reader.interface, .two);
+    std.debug.print("part_one:{d} part_two:{d}\n", .{ one, two });
 }
 
-fn solve(reader: *std.io.Reader, part_two: bool) !u64 {
+fn solve(reader: *std.io.Reader, part: Part) !u64 {
     var result: u64 = 0;
     while (try reader.takeDelimiter(',')) |input| {
         const range = std.mem.trim(u8, input, "\n");
@@ -22,15 +26,18 @@ fn solve(reader: *std.io.Reader, part_two: bool) !u64 {
 
         for (start..end + 1) |i| {
             const digits = std.math.log(u64, 10, i) + 1;
-            if (part_two) {
-                for (2..digits + 1) |parts| {
-                    if (isInvalid(i, digits, parts)) {
-                        result += i;
-                        break;
+            switch (part) {
+                .one => {
+                    if (isInvalid(i, digits, 2)) result += i;
+                },
+                .two => {
+                    for (2..digits + 1) |parts| {
+                        if (isInvalid(i, digits, parts)) {
+                            result += i;
+                            break;
+                        }
                     }
-                }
-            } else {
-                if (isInvalid(i, digits, 2)) result += i;
+                },
             }
         }
     }
@@ -60,12 +67,12 @@ const test_input =
 
 test "test part 1" {
     var reader = std.io.Reader.fixed(test_input);
-    const result = try solve(&reader, false);
+    const result = try solve(&reader, .one);
     try std.testing.expectEqual(1227775554, result);
 }
 
 test "test part 2" {
     var reader = std.io.Reader.fixed(test_input);
-    const result = try solve(&reader, true);
+    const result = try solve(&reader, .two);
     try std.testing.expectEqual(4174379265, result);
 }
