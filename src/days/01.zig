@@ -15,89 +15,90 @@ fn solve(reader: *std.io.Reader, part: Part) !u64 {
         try handle.rotate(line);
     }
     return switch (part) {
-        .one => handle.zero_end,
-        .two => handle.zero_passed_by,
+        .one => handle.end_at_zero,
+        .two => handle.passed_by_zero,
     };
 }
 
 const Handle = struct {
     position: u8,
-    zero_end: u64 = 0,
-    zero_passed_by: u64 = 0,
+    end_at_zero: u64 = 0,
+    passed_by_zero: u64 = 0,
 
     fn rotate(self: *Handle, input: []const u8) !void {
         const total_ticks = try std.fmt.parseInt(u16, input[1..], 10);
         const ticks = total_ticks % 100;
         const turns = total_ticks / 100;
 
-        var move = ticks;
-        var passed_zero = false;
-        switch (input[0]) {
-            'L' => {
-                passed_zero = (self.position != 0) and (move > self.position);
-                move = (100 - ticks);
-            },
-            'R' => {
-                passed_zero = (self.position != 0) and (self.position + move > 99);
-            },
-            else => unreachable,
-        }
+        const clockwise = switch (input[0]) {
+            'L' => false,
+            'R' => true,
+            else => return error.InvalidInput,
+        };
 
-        self.zero_passed_by += turns;
+        const move = if (clockwise) ticks else 100 - ticks;
+        var passed_zero = (self.position != 0) and if (clockwise)
+            (self.position + ticks > 99)
+        else
+            (ticks > self.position);
+
+        self.passed_by_zero += turns;
         self.position = @truncate(@as(u16, (self.position + move) % 100));
 
         if (self.position == 0) {
-            self.zero_end += 1;
+            self.end_at_zero += 1;
             passed_zero = true;
         }
 
-        if (passed_zero) self.zero_passed_by += 1;
+        if (passed_zero) self.passed_by_zero += 1;
     }
 };
 
 test "passed by zero" {
     var handle: Handle = .{ .position = 1 };
     try handle.rotate("L2");
-    try std.testing.expectEqual(99, handle.position);
-    try std.testing.expectEqual(1, handle.zero_passed_by);
-    try std.testing.expectEqual(0, handle.zero_end);
+    try std.testing.expectEqual(Handle{
+        .position = 99,
+        .passed_by_zero = 1,
+        .end_at_zero = 0,
+    }, handle);
 
     try handle.rotate("R2");
     try std.testing.expectEqual(1, handle.position);
-    try std.testing.expectEqual(2, handle.zero_passed_by);
-    try std.testing.expectEqual(0, handle.zero_end);
+    try std.testing.expectEqual(2, handle.passed_by_zero);
+    try std.testing.expectEqual(0, handle.end_at_zero);
 
     try handle.rotate("R100");
     try std.testing.expectEqual(1, handle.position);
-    try std.testing.expectEqual(3, handle.zero_passed_by);
-    try std.testing.expectEqual(0, handle.zero_end);
+    try std.testing.expectEqual(3, handle.passed_by_zero);
+    try std.testing.expectEqual(0, handle.end_at_zero);
 
     try handle.rotate("L100");
     try std.testing.expectEqual(1, handle.position);
-    try std.testing.expectEqual(4, handle.zero_passed_by);
-    try std.testing.expectEqual(0, handle.zero_end);
+    try std.testing.expectEqual(4, handle.passed_by_zero);
+    try std.testing.expectEqual(0, handle.end_at_zero);
 
     try handle.rotate("L1");
     try std.testing.expectEqual(0, handle.position);
-    try std.testing.expectEqual(5, handle.zero_passed_by);
-    try std.testing.expectEqual(1, handle.zero_end);
+    try std.testing.expectEqual(5, handle.passed_by_zero);
+    try std.testing.expectEqual(1, handle.end_at_zero);
 
     try handle.rotate("L1");
     try std.testing.expectEqual(99, handle.position);
-    try std.testing.expectEqual(5, handle.zero_passed_by);
-    try std.testing.expectEqual(1, handle.zero_end);
+    try std.testing.expectEqual(5, handle.passed_by_zero);
+    try std.testing.expectEqual(1, handle.end_at_zero);
 
     try handle.rotate("R1");
     try std.testing.expectEqual(0, handle.position);
-    try std.testing.expectEqual(6, handle.zero_passed_by);
-    try std.testing.expectEqual(2, handle.zero_end);
+    try std.testing.expectEqual(6, handle.passed_by_zero);
+    try std.testing.expectEqual(2, handle.end_at_zero);
 }
 
 test "part 2 example" {
     var handle: Handle = .{ .position = 50 };
     try handle.rotate("R1000");
     try std.testing.expectEqual(50, handle.position);
-    try std.testing.expectEqual(10, handle.zero_passed_by);
+    try std.testing.expectEqual(10, handle.passed_by_zero);
 }
 
 test "end at zero" {
@@ -105,28 +106,30 @@ test "end at zero" {
     try handle.rotate("L1"); // position: 0
     try handle.rotate("R1"); // position: 1
     try handle.rotate("L1"); // position: 0
-    try std.testing.expectEqual(2, handle.zero_passed_by);
+    try std.testing.expectEqual(2, handle.passed_by_zero);
 }
 
-test "tests part 1 and 2" {
-    const input =
-        \\L68
-        \\L30
-        \\R48
-        \\L5
-        \\R60
-        \\L55
-        \\L1
-        \\L99
-        \\R14
-        \\L82
-    ;
+const test_input =
+    \\L68
+    \\L30
+    \\R48
+    \\L5
+    \\R60
+    \\L55
+    \\L1
+    \\L99
+    \\R14
+    \\L82
+;
 
-    var reader = std.io.Reader.fixed(input);
+test "tests part 1" {
+    var reader = std.io.Reader.fixed(test_input);
     const one = try solve(&reader, .one);
-    reader = std.io.Reader.fixed(input);
-    const two = try solve(&reader, .two);
-
     try std.testing.expectEqual(3, one);
-    try std.testing.expectEqual(6, two);
+}
+
+test "tests part 2" {
+    var reader = std.io.Reader.fixed(test_input);
+    const one = try solve(&reader, .two);
+    try std.testing.expectEqual(6, one);
 }

@@ -16,30 +16,29 @@ pub fn main() !void {
     std.debug.print("part_one:{d} part_two:{d}\n", .{ one, two });
 }
 
-fn findMax(line: []u8, digits: u8, acc: u64, current_max: u64) ?u64 {
-    if (acc < current_max) return null;
-    if (digits == 0) return acc;
-    const remaining = digits - 1;
-    if (line.len < digits) return null;
+fn findMax(line: []u8, current_digits: u8, target_digits: u8, value: u64) ?u64 {
+    var i: u8 = 9;
+    while (i > 0) : (i -= 1) {
+        const index = std.mem.indexOfScalar(u8, line, '0' + i) orelse continue;
+        const new_value: u64 = 10 * value + line[index] - '0';
+        const found_digits = current_digits + 1;
+        if (found_digits == target_digits) return new_value;
 
-    var max = acc;
-    for (0..line.len - remaining) |i| {
-        const cur = (line[i] - '0') * std.math.pow(u64, 10, digits - 1);
-        if (findMax(line[i + 1 ..], remaining, acc + cur, max)) |value| {
-            max = @max(max, value);
-        } else {
-            continue;
+        const new_index = index + 1;
+        if (new_index >= line.len) continue;
+
+        if (findMax(line[new_index..], found_digits, target_digits, new_value)) |max| {
+            return max;
         }
     }
-
-    return max;
+    return null;
 }
 
 fn solve(reader: *std.io.Reader, part: Part) !u64 {
     var result: u64 = 0;
     const digits: u8 = if (part == .two) 12 else 2;
     while (try reader.takeDelimiter('\n')) |line| {
-        result += findMax(line, digits, 0, 0) orelse unreachable;
+        result += findMax(line, 0, digits, 0) orelse unreachable;
     }
     return result;
 }
