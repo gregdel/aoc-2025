@@ -1,19 +1,12 @@
 const std = @import("std");
 
-const Input = @import("lib/input.zig").Input;
+const Day = @import("lib/aoc.zig").Day;
 const Part = @import("lib/aoc.zig").Part;
 
 pub fn main() !void {
-    var input = try Input.init(2);
-    defer input.deinit();
-
-    var buf: [4096]u8 = undefined;
-    var file_reader = try input.reader(&buf);
-
-    const one = try solve(&file_reader.interface, .one);
-    try file_reader.seekTo(0);
-    const two = try solve(&file_reader.interface, .two);
-    std.debug.print("part_one:{d} part_two:{d}\n", .{ one, two });
+    var day = try Day.init(2, solve);
+    defer day.deinit();
+    try day.solve();
 }
 
 fn solve(reader: *std.io.Reader, part: Part) !u64 {
