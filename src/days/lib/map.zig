@@ -13,10 +13,18 @@ pub const Direction = enum {
 
 pub const all_directions = std.meta.tags(Direction).*;
 
-const Point = struct {
+pub const Point = struct {
     x: usize,
     y: usize,
     value: u8,
+
+    pub fn init(x: usize, y: usize, value: u8) Point {
+        return .{
+            .x = x,
+            .y = y,
+            .value = value,
+        };
+    }
 
     pub fn format(self: Point, writer: *std.io.Writer) std.Io.Writer.Error!void {
         try writer.print(
@@ -82,11 +90,24 @@ pub const Map = struct {
             _ = try writer.write(self.data[offset .. offset + self.width]);
             try writer.writeByte('\n');
         }
+        try writer.print(
+            "width:{d} height:{d} total:{d}",
+            .{
+                self.width,
+                self.height,
+                self.width * self.height,
+            },
+        );
+    }
+
+    pub fn find(self: *Map, rune: u8) ?Point {
+        const i = std.mem.indexOfScalar(u8, self.data, rune) orelse return null;
+        return self.getIndex(i);
     }
 
     pub fn getIndex(self: *Map, i: usize) ?Point {
         const x = i % self.width;
-        const y = i / self.height;
+        const y = i / self.width;
         return self.get(x, y);
     }
 
@@ -96,6 +117,10 @@ pub const Map = struct {
 
     pub fn update(self: *Map, x: usize, y: usize, value: u8) void {
         self.data[self.index(x, y)] = value;
+    }
+
+    pub fn updatePoint(self: *Map, point: Point, value: u8) void {
+        self.update(point.x, point.y, value);
     }
 
     pub fn get(self: *Map, x: usize, y: usize) ?Point {
