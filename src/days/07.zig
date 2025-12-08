@@ -32,28 +32,31 @@ fn solve(reader: *std.io.Reader, part: Part) !u64 {
     return try handleTwo(&map, &entries);
 }
 
+fn upValue(map: *Map, entries: *std.AutoHashMap(Point, u64), point: Point) ?u64 {
+    const up = map.next(&point, .up) orelse return null;
+    return entries.get(up);
+}
+
+fn updateValue(entries: *std.AutoHashMap(Point, u64), point: Point, to_add: u64) !void {
+    const prev_value = entries.get(point) orelse 0;
+    try entries.put(point, prev_value + to_add);
+}
+
 fn handleTwo(map: *Map, entries: *std.AutoHashMap(Point, u64)) !u64 {
     var it = map.iterator();
     while (it.next()) |point| {
         switch (point.value) {
             'S' => try entries.put(point, 1),
-            '.',
-            '|',
-            => {
-                const up = map.next(&point, .up) orelse continue;
-                const value = entries.get(up) orelse continue;
-                const prev_value = entries.get(point) orelse 0;
-                try entries.put(point, prev_value + value);
-            },
+            '.' => try updateValue(
+                entries,
+                point,
+                upValue(map, entries, point) orelse continue,
+            ),
             '^' => {
-                const up = map.next(&point, .up) orelse unreachable;
-                const value = entries.get(up) orelse continue;
-                for (split_directions) |direction| {
-                    if (map.next(&point, direction)) |n| {
-                        const prev_value = entries.get(n) orelse 0;
-                        try entries.put(n, prev_value + value);
-                    }
-                }
+                const up_value = upValue(map, entries, point) orelse continue;
+                for (split_directions) |direction| if (map.next(&point, direction)) |n| {
+                    try updateValue(entries, n, up_value);
+                };
             },
             else => unreachable,
         }
@@ -61,12 +64,9 @@ fn handleTwo(map: *Map, entries: *std.AutoHashMap(Point, u64)) !u64 {
 
     var result: u64 = 0;
     for (0..map.width) |x| {
-        const y = map.height - 1;
-        const point = map.get(x, y) orelse unreachable;
-        const value = entries.get(point) orelse 0;
-        result += value;
+        const point = map.get(x, map.height - 1) orelse unreachable;
+        result += entries.get(point) orelse 0;
     }
-
     return result;
 }
 
@@ -78,12 +78,8 @@ fn handleOne(map: *Map, point: Point) u64 {
     switch (next.value) {
         '|' => return 0,
         '.' => return handleOne(map, next),
-        '^' => {
-            for (split_directions) |direction| {
-                if (map.next(&next, direction)) |n| {
-                    split += handleOne(map, n);
-                }
-            }
+        '^' => for (split_directions) |direction| if (map.next(&next, direction)) |n| {
+            split += handleOne(map, n);
         },
         else => unreachable,
     }
@@ -109,11 +105,11 @@ const test_input =
     \\...............
 ;
 
-// test "test part 1" {
-//     var reader = std.io.Reader.fixed(test_input);
-//     const result = try solve(&reader, .one);
-//     try std.testing.expectEqual(21, result);
-// }
+test "test part 1" {
+    var reader = std.io.Reader.fixed(test_input);
+    const result = try solve(&reader, .one);
+    try std.testing.expectEqual(21, result);
+}
 
 test "test part 2" {
     var reader = std.io.Reader.fixed(test_input);
