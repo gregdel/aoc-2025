@@ -137,57 +137,70 @@ const Machine = struct {
     }
 
     fn doStuff(self: *Machine) !u64 {
-        return self.stuff(self.counter, 0);
+        const timer_one_start = try std.time.Instant.now();
+        const yolo = self.stuff(self.counter, 0);
+        const timer_one_end = try std.time.Instant.now();
+        std.debug.print("{d}ms\n", .{
+            @divFloor(timer_one_end.since(timer_one_start), std.time.ns_per_ms),
+        });
+        return yolo;
     }
 
     const zero_vector: @Vector(10, u16) = @splat(0);
 
     fn stuff(self: *Machine, input: @Vector(10, u16), moves: u64) !u64 {
-        if (self.best_move) |m| {
-            if (moves > m) {
-                self.skipped += 1;
-                return 0;
-            }
-        }
+        if (self.best_move) |m| if (moves >= m) {
+            self.skipped += 1;
+            return 0;
+        };
 
-        if (self.vector_cache.get(input)) |cached_moves| {
-            if (cached_moves < moves) {
-                self.skipped += 1;
-                std.debug.print("skipped:{any} skipped:{d}\n", .{ input, self.skipped });
-                return 0;
-            }
-        }
-        try self.vector_cache.put(input, moves);
+        // if (self.vector_cache.get(input)) |cached_moves| {
+        //     if (cached_moves < moves) {
+        //         self.skipped += 1;
+        //         // std.debug.print("skipped:{any} skipped:{d}\n", .{ input, self.skipped });
+        //         return 0;
+        //     }
+        // }
+        // try self.vector_cache.put(input, moves);
 
         if (@reduce(.And, input == zero_vector)) {
-            if (self.best_move) |m| {
-                self.best_move = @min(m, moves);
-            } else {
-                self.best_move = moves;
-                std.debug.print("new best:{d} skipped:{d}\n", .{ moves, self.skipped });
-            }
+            self.best_move = if (self.best_move) |m| @min(m, moves) else moves;
+            std.debug.print("solution found:{d} skipped:{d}\n", .{ self.best_move.?, self.skipped });
             return 0;
-            // std.debug.print("solution found: {d}\n", .{moves});
             // return moves;
         }
         // std.debug.print("working on:{any} moves:{d}\n", .{ input, moves });
 
         const i_max = std.mem.indexOfMax(u16, &@as([10]u16, input));
         const value_max = input[i_max];
-        std.debug.print("input:{any} i_max:{d} value_max:{d} moves:{d}\n", .{ input, i_max, value_max, moves });
-        self.best_move = 1;
-        for (self.button_vectors.items) |v| {
-            if (v[i_max] == 0) continue;
-            var times = value_max;
-            while (times > 0) : (times -= 1) {
+        // std.debug.print("input:{any} i_max:{d} value_max:{d} moves:{d}\n", .{ input, i_max, value_max, moves });
+        // var times = if (self.best_move) |m| @min(m, value_max) else value_max;
+        var times = value_max;
+        // if (self.best_move) |m| {
+        //     const pwet = @min(m - times, times);
+        //     if (pwet != times) {
+        //         std.debug.print("times:{d} self+times:{d} m:{d} pwet:{d}\n", .{ times, m + times, m, pwet });
+        //     }
+        // } else {
+        //     // std.debug.print("times:{d} self+times:{d}\n", .{ times, times });
+        // }
+
+        while (times > 0) : (times -= 1) {
+            if (self.best_move) |m| if (times + moves > m) {
+                self.skipped += 1;
+                continue;
+            };
+
+            for (self.button_vectors.items) |v| {
+                if (v[i_max] == 0) continue;
                 const factor: @Vector(10, u16) = @splat(times);
                 const candidate = v * factor;
                 if (@reduce(.Or, candidate > input)) continue;
                 const next_candidate = input - candidate;
-                std.debug.print("next_candidate: {any} times:{d}\n", .{ next_candidate, times });
-                // const result = try self.stuff(next_candidate, moves + times);
-                // // std.debug.print("-->{d} {any}\n", .{ result, candidate });
-                // if (result != 0) return result;
+                // std.debug.print("next_candidate: {any} times:{d}\n", .{ next_candidate, times });
+                const result = try self.stuff(next_candidate, moves + times);
+                // std.debug.print("-->{d} {any}\n", .{ result, candidate });
+                if (result != 0) return result;
             }
         }
         return 0;
@@ -218,7 +231,7 @@ fn solve(reader: *std.io.Reader, part: Part) !u64 {
                 std.debug.print("--> {d} skipped:{d}\n", .{ value, machine.skipped });
             },
         }
-        break;
+        // break;
     }
 
     return result;
