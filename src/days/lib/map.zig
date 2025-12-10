@@ -46,6 +46,7 @@ pub const Map = struct {
     data: []u8,
     width: usize,
     height: usize,
+    obstacle: ?u8 = null,
 
     pub fn init(allocator: std.mem.Allocator, reader: *std.io.Reader) !Map {
         var width: ?usize = null;
@@ -71,6 +72,17 @@ pub const Map = struct {
         };
     }
 
+    pub fn initEmpty(allocator: std.mem.Allocator, width: usize, height: usize) !Map {
+        const data = try allocator.alloc(u8, width * height);
+        @memset(data, '.');
+        return .{
+            .allocator = allocator,
+            .width = width,
+            .height = height,
+            .data = data,
+        };
+    }
+
     pub fn deinit(self: *Map) void {
         self.allocator.free(self.data);
     }
@@ -82,6 +94,59 @@ pub const Map = struct {
             .width = self.width,
             .height = self.height,
         };
+    }
+
+    pub fn setObstacle(self: *Map, obstacle: u8) void {
+        self.obstacle = obstacle;
+    }
+
+    pub fn floodFill(self: *Map, c: u8) !void {
+        const obstacle = self.obstacle orelse return error.MissingObstacle;
+
+        const Entry = struct {
+            index: usize,
+            distance: u32,
+
+            const Entry = @This();
+
+            fn cmp(_: void, a: Entry, b: Entry) std.math.Order {
+                return std.math.order(a.distance, b.distance);
+            }
+        };
+
+        var queue: std.PriorityQueue(Entry, void, Entry.cmp) = .init(self.allocator, {});
+        defer queue.deinit();
+
+        // Add borders to the todo list
+        const last_x = self.width - 1;
+        const last_y = self.height - 1;
+        for (0..self.width) |x| {
+            try queue.add(.{ .index = self.index(x, 0), .distance = 0 });
+            try queue.add(.{ .index = self.index(x, last_y), .distance = 0 });
+        }
+        for (1..self.height - 1) |y| {
+            try queue.add(.{ .index = self.index(0, y), .distance = 0 });
+            try queue.add(.{ .index = self.index(last_x, y), .distance = 0 });
+        }
+
+        var explored: std.AutoHashMap(usize, void) = .init(self.allocator);
+        defer explored.deinit();
+
+        const dirs = [_]Direction{ .up, .down, .left, .right };
+
+        while (queue.removeOrNull()) |entry| {
+            if (explored.get(entry.index) != null) continue;
+            try explored.put(entry.index, {});
+            if ((self.data[entry.index]) == obstacle) continue;
+            self.data[entry.index] = c;
+            const point = self.getIndex(entry.index) orelse unreachable;
+            for (dirs) |dir| {
+                const next_point = self.next(&point, dir) orelse continue;
+                try queue.add(.{ .index = self.indexPoint(next_point), .distance = entry.distance + 1 });
+            }
+        }
+
+        return;
     }
 
     pub fn format(self: Map, writer: *std.io.Writer) std.Io.Writer.Error!void {
@@ -113,6 +178,10 @@ pub const Map = struct {
 
     fn index(self: *Map, x: usize, y: usize) usize {
         return y * self.width + x;
+    }
+
+    fn indexPoint(self: *Map, point: Point) usize {
+        return self.index(point.x, point.y);
     }
 
     pub fn update(self: *Map, x: usize, y: usize, value: u8) void {
