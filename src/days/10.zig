@@ -125,10 +125,10 @@ const Machine = struct {
 
     fn minVectors(self: *Machine) !u64 {
         const min = @reduce(.Max, self.counter);
-        std.debug.print("Starting with min:{d}\n", .{min});
 
         // for (1..255) |presses| if (self.pressVector(@splat(0), presses)) return presses;
         for (min..min + 10) |presses| {
+            std.debug.print("Searching for:{d}\n", .{presses});
             self.vector_cache.clearRetainingCapacity();
             if (try self.pressVector(@splat(0), presses)) return presses;
             std.debug.print("* {d} (cache:{d})\n", .{ presses, self.cache.count() });
@@ -224,9 +224,14 @@ fn solve(reader: *std.io.Reader, part: Part) !u64 {
         switch (part) {
             .one => result += machine.minButtons(),
             .two => {
-                // const value = try machine.minVectors();
-                _ = try machine.doStuff();
-                const value = machine.best_move orelse unreachable;
+                const timer_one_start = try std.time.Instant.now();
+                const value = try machine.minVectors();
+                // _ = try machine.doStuff();
+                const timer_one_end = try std.time.Instant.now();
+                std.debug.print("{d}ms\n", .{
+                    @divFloor(timer_one_end.since(timer_one_start), std.time.ns_per_ms),
+                });
+                // const value = machine.best_move orelse unreachable;
                 result += value;
                 std.debug.print("--> {d} skipped:{d}\n", .{ value, machine.skipped });
             },
