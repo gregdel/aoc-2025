@@ -53,8 +53,14 @@ const Node = struct {
     }
 
     fn updatePath(self: *Node) !void {
-        self.paths = 0;
-        for (self.parents.items) |parent| self.paths += parent.paths;
+        if (self.parents.items.len == 0) {
+            self.paths = 1;
+            return;
+        }
+
+        var total: u64 = 0;
+        for (self.parents.items) |parent| total += parent.paths;
+        if (self.paths != total) self.paths = total;
     }
 
     fn upsertParent(self: *Node, new_parent: *Node) !void {
@@ -92,20 +98,16 @@ const Entry = struct {
     node: *Node,
     parent: *Node,
     distance: u32,
+
+    fn cmp(_: void, a: Entry, b: Entry) std.math.Order {
+        return std.math.order(a.distance, b.distance);
+    }
 };
-
-fn cmpEntry(_: void, a: Entry, b: Entry) std.math.Order {
-    return std.math.order(a.distance, b.distance);
-}
-
-fn cmpEntryReverse(_: void, a: Entry, b: Entry) std.math.Order {
-    return std.math.order(b.distance, a.distance);
-}
 
 fn exploreGraph(allocator: std.mem.Allocator, start: *Node, end: *Node) !u64 {
     var explored: std.AutoHashMap(*Node, void) = .init(allocator);
     defer explored.deinit();
-    var queue: std.PriorityQueue(Entry, void, cmpEntry) = .init(allocator, {});
+    var queue: std.PriorityQueue(Entry, void, Entry.cmp) = .init(allocator, {});
     defer queue.deinit();
     try queue.add(.{ .node = start, .distance = 0, .parent = start });
     start.paths = 1;
@@ -123,6 +125,7 @@ fn exploreGraph(allocator: std.mem.Allocator, start: *Node, end: *Node) !u64 {
         if (explored.get(element.node)) |_| {
             // std.debug.print("{s} already explored adding paths from {s}:\n", .{ node.name, parent.name });
             try node.addParentPaths(parent);
+
             // if (node.shouldUpdateChilds()) {
             //     try final_queue.append(allocator, node);
             // }
